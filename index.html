@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Seb vs Anar Game</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background: #121212; color: #fff; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 10px; }
+        .app-card { background: #1f1a2e; width: 100%; max-width: 380px; border-radius: 20px; padding: 20px; box-shadow: 0 8px 24px rgba(0,0,0,0.5); border: 1px solid #332940; }
+        
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .wallet-box { background: #00875a; padding: 6px 14px; border-radius: 12px; font-weight: bold; font-size: 15px; }
+        
+        .timer-card { background: #5b21b6; border-radius: 14px; padding: 12px; text-align: center; margin-bottom: 15px; }
+        .timer-card h3 { font-size: 13px; color: #ddd; margin-bottom: 4px; }
+        .timer-val { font-size: 26px; font-weight: bold; color: #ffeb3b; }
+
+        .room-selector { display: flex; gap: 8px; margin-bottom: 15px; }
+        .room-btn { flex: 1; padding: 10px; background: #2c2540; border: 1px solid #4a3b69; border-radius: 10px; color: #aaa; font-weight: bold; cursor: pointer; }
+        .room-btn.active { background: #7c3aed; color: #fff; border-color: #a78bfa; }
+
+        .game-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 15px; }
+        .fruit-card { background: #2a223d; border-radius: 14px; padding: 12px; text-align: center; border: 2px solid transparent; }
+        .fruit-card.selected { border-color: #fbbf24; background: #372a54; }
+        .fruit-icon { font-size: 45px; margin-bottom: 5px; }
+        .fruit-title { font-size: 16px; font-weight: bold; margin-bottom: 8px; }
+        .bet-btn { width: 100%; background: #eab308; border: none; padding: 8px; border-radius: 8px; color: #000; font-weight: bold; cursor: pointer; }
+        
+        .ad-btn { width: 100%; background: #2563eb; color: #fff; border: none; padding: 10px; border-radius: 10px; font-weight: bold; margin-bottom: 15px; cursor: pointer; }
+        .status-msg { text-align: center; font-size: 14px; color: #38bdf8; min-height: 20px; margin-bottom: 10px; }
+
+        /* Hidden Admin Panel */
+        .admin-section { margin-top: 15px; border-top: 1px dashed #444; padding-top: 12px; }
+        .admin-toggle { background: transparent; border: none; color: #555; font-size: 11px; cursor: pointer; }
+        .admin-controls { display: none; margin-top: 8px; background: #111; padding: 10px; border-radius: 8px; }
+        .admin-controls select { padding: 5px; width: 100%; background: #222; color: #fff; border: 1px solid #555; border-radius: 5px; margin-top: 5px; }
+    </style>
+</head>
+<body>
+
+<div class="app-card">
+    <div class="header">
+        <h2 style="font-size: 17px;">🍎 Seb vs Anar</h2>
+        <div class="wallet-box">🪙 <span id="wallet">50</span> कॉइन्स</div>
+    </div>
+
+    <!-- Watch Ad Button -->
+    <button class="ad-btn" onclick="watchRewardAd()">📺 Ad देखें और 20 कॉइन्स पाएं</button>
+
+    <!-- Room Selector (5 Coin vs 10 Coin) -->
+    <div class="room-selector">
+        <button class="room-btn active" id="room5Btn" onclick="selectRoom(5)">5 कॉइन रूम (जीत: 9)</button>
+        <button class="room-btn" id="room10Btn" onclick="selectRoom(10)">10 कॉइन रूम (जीत: 18)</button>
+    </div>
+
+    <!-- 10 Sec Timer -->
+    <div class="timer-card">
+        <h3>अगले राउंड का रिज़ल्ट</h3>
+        <div class="timer-val" id="timer">10s</div>
+    </div>
+
+    <!-- Fruit Choices -->
+    <div class="game-grid">
+        <div class="fruit-card" id="card-seb">
+            <div class="fruit-icon">🍎</div>
+            <div class="fruit-title">सेब</div>
+            <button class="bet-btn" onclick="placeBet('seb')">सेब चुनें</button>
+        </div>
+        <div class="fruit-card" id="card-anar">
+            <div class="fruit-icon">🎯</div>
+            <div class="fruit-title">अनार</div>
+            <button class="bet-btn" onclick="placeBet('anar')">अनार चुनें</button>
+        </div>
+    </div>
+
+    <div class="status-msg" id="statusMsg">राउंड शुरू होने वाला है...</div>
+
+    <!-- Admin Panel (Secret Control) -->
+    <div class="admin-section">
+        <button class="admin-toggle" onclick="toggleAdmin()">⚙️ एडमिन कंट्रोल (सिर्फ आपके लिए)</button>
+        <div class="admin-controls" id="adminControls">
+            <label style="font-size: 12px; color: #aaa;">अगला विजेता कौन बनेगा:</label>
+            <select id="adminChoice">
+                <option value="auto">Auto (Random)</option>
+                <option value="seb">🍎 सेब को जिताओ</option>
+                <option value="anar">🎯 अनार को जिताओ</option>
+            </select>
+        </div>
+    </div>
+</div>
+
+<script>
+    let wallet = 50;
+    let currentRoom = 5; // 5 or 10
+    let userChoice = null;
+    let timeLeft = 10;
+    let adminNextWinner = 'auto';
+
+    // Room Selection
+    function selectRoom(roomVal) {
+        currentRoom = roomVal;
+        document.getElementById('room5Btn').classList.toggle('active', roomVal === 5);
+        document.getElementById('room10Btn').classList.toggle('active', roomVal === 10);
+        resetCards();
+    }
+
+    // Placing Bet
+    function placeBet(fruit) {
+        if (timeLeft <= 2) {
+            alert("समय समाप्त! अगले राउंड का इंतज़ार करें।");
+            return;
+        }
+        if (userChoice !== null) {
+            alert("आप इस राउंड में पहले ही दांव लगा चुके हैं!");
+            return;
+        }
+        if (wallet < currentRoom) {
+            alert("कॉइन्स खत्म हो गए हैं! Ad देखकर कॉइन्स लें।");
+            return;
+        }
+
+        wallet -= currentRoom;
+        userChoice = fruit;
+        updateWallet();
+        document.getElementById(`card-${fruit}`).classList.add('selected');
+        document.getElementById('statusMsg').innerText = `आपने ${fruit === 'seb' ? '🍎 सेब' : '🎯 अनार'} पर ${currentRoom} कॉइन लगाए!`;
+    }
+
+    // Ad Simulation
+    function watchRewardAd() {
+        document.getElementById('statusMsg').innerText = "विज्ञापन लोड हो रहा है...";
+        setTimeout(() => {
+            wallet += 20;
+            updateWallet();
+            alert("Ad पूरा देखा गया! आपको 20 कॉइन्स मिल गए।");
+            document.getElementById('statusMsg').innerText = "कॉइन्स जुड़ गए!";
+        }, 1500);
+    }
+
+    function updateWallet() {
+        document.getElementById('wallet').innerText = wallet;
+    }
+
+    function resetCards() {
+        document.getElementById('card-seb').classList.remove('selected');
+        document.getElementById('card-anar').classList.remove('selected');
+        userChoice = null;
+    }
+
+    // Admin Toggle
+    function toggleAdmin() {
+        const p = document.getElementById('adminControls');
+        p.style.display = p.style.display === 'block' ? 'none' : 'block';
+    }
+
+    // Game Loop (10-second timer)
+    setInterval(() => {
+        timeLeft--;
+        if (timeLeft > 0) {
+            document.getElementById('timer').innerText = timeLeft + "s";
+        } else {
+            // Round Finish: Decide Winner
+            let forcedWinner = document.getElementById('adminChoice').value;
+            let winner = forcedWinner !== 'auto' ? forcedWinner : (Math.random() < 0.5 ? 'seb' : 'anar');
+
+            let winCoin = currentRoom === 5 ? 9 : 18;
+            let winnerName = winner === 'seb' ? '🍎 सेब' : '🎯 अनार';
+
+            if (userChoice === winner) {
+                wallet += winCoin;
+                updateWallet();
+                document.getElementById('statusMsg').innerText = `🎉 ${winnerName} जीता! आपको मिले +${winCoin} कॉइन्स!`;
+            } else if (userChoice !== null) {
+                document.getElementById('statusMsg').innerText = `❌ ${winnerName} जीता! आप हार गए।`;
+            } else {
+                document.getElementById('statusMsg').innerText = `राउंड खत्म! ${winnerName} जीता।`;
+            }
+
+            // Reset Round
+            timeLeft = 10;
+            resetCards();
+        }
+    }, 1000);
+</script>
+
+</body>
+</html>
